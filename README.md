@@ -17,23 +17,22 @@ No setup required — just upload your resume and see the results instantly! �
 
 👉 [Watch Full Demo Video](https://your-demo-video-link)  
 
+
+---
+
 <p align="center">
   <img src="assets/1.png" alt="CV2CSV Demo" width="80%">
 </p>
-
----
 
 <p align="center">
   <img src="assets/2.png" alt="CV2CSV Demo" width="80%">
 </p>
 
----
 
 <p align="center">
   <img src="assets/3.png" alt="CV2CSV Demo" width="80%">
 </p>
 
----
 
 ## ✨ Why CV2CSV?  
 
@@ -71,13 +70,13 @@ No setup required — just upload your resume and see the results instantly! �
 
 ### 1️⃣ Clone the repo  
 ```bash
-git clone https://github.com/your-username/cv2csv.git
+git clone https://github.com/classytamil/cv2csv.git
 cd cv2csv
 ```
 
 ### 2️⃣ Install dependencies  
 ```bash
-pip install -r requirements.txt
+pip install -r req.txt
 ```
 
 ### 3️⃣ Add your Google API key  
@@ -119,7 +118,7 @@ cv2csv/
 │── requirements.txt    # Dependencies
 │── .env.example        # API key example
 │── assets/             # Images & demo files
-│    ├── preview.gif
+│    ├── 1.png
 │    ├── banner.png
 │── README.md
 ```
