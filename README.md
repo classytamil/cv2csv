@@ -78,7 +78,7 @@ CV2CSV supports **Bring Your Own Google Gemini API Key**, making it safe and sca
 - **Custom model name** (user-defined)
 
 <p align="center">
-  <img src="assets/5.png" alt="API and Model Configuration" width="80%">
+  <img src="assets/6.png" alt="API and Model Configuration" width="80%">
 </p>
 
 🔒 **Security Note:**  
