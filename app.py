@@ -25,13 +25,28 @@ if 'processing_complete' not in st.session_state:
     st.session_state.processing_complete = False
 if 'custom_fields' not in st.session_state:
     st.session_state.custom_fields = []
+if 'api_key' not in st.session_state:
+    st.session_state.api_key = os.getenv("GOOGLE_API_KEY", "")
+if 'model_name' not in st.session_state:
+    st.session_state.model_name = "gemini-2.0-flash"
 
 generation_config = {"temperature": 0.02}
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-genai.configure(api_key=GOOGLE_API_KEY)
-model = genai.GenerativeModel(model_name='gemini-2.0-flash',
-                                   generation_config=generation_config,)
+def get_configured_model():
+    """Get configured Gemini model with current API key and model name"""
+    if not st.session_state.api_key:
+        return None
+    
+    try:
+        genai.configure(api_key=st.session_state.api_key)
+        model = genai.GenerativeModel(
+            model_name=st.session_state.model_name,
+            generation_config=generation_config
+        )
+        return model
+    except Exception as e:
+        st.error(f"Error configuring model: {e}")
+        return None
 
 def build_dynamic_prompt(custom_fields):
     """Build prompt with custom fields only"""
@@ -57,7 +72,7 @@ def build_dynamic_prompt(custom_fields):
     return custom_fields, field_descriptions, special_instructions
 
 def parse_resume_with_gemma(model, resume_text, custom_fields):
-    """Parse resume using Gemma model with dynamic fields"""
+    """Parse resume using Gemini model with dynamic fields"""
     
     if not custom_fields:
         return None
@@ -104,6 +119,10 @@ def process_uploaded_files(model, uploaded_files, custom_fields):
         st.error("❌ Please add fields in the sidebar before processing.")
         return []
     
+    if not model:
+        st.error("❌ Please configure your API key and model in the sidebar.")
+        return []
+    
     results = []
     progress_bar = st.progress(0)
     status_text = st.empty()
@@ -123,7 +142,7 @@ def process_uploaded_files(model, uploaded_files, custom_fields):
             continue
             
         if resume_text:
-            # Parse with Gemma
+            # Parse with Gemini
             parsed_data = parse_resume_with_gemma(model, resume_text, custom_fields)
             
             if parsed_data:
@@ -143,9 +162,93 @@ def process_uploaded_files(model, uploaded_files, custom_fields):
     status_text.text("Processing complete!")
     return results
 
+def render_api_configuration():
+    """Render API configuration section in sidebar"""
+    with st.sidebar.expander("🔑 API Configuration", expanded=not st.session_state.api_key):
+        st.markdown("Configure your Google AI API key and model")
+        
+        # API Key input
+        api_key_input = st.text_input(
+            "Google API Key *",
+            value=st.session_state.api_key,
+            type="password",
+            placeholder="Enter your Google AI API key",
+            help="Get your API key from https://aistudio.google.com/app/apikey"
+        )
+        
+        if api_key_input != st.session_state.api_key:
+            st.session_state.api_key = api_key_input
+        
+        # Model selection
+        st.markdown("**Select Model**")
+        
+        model_options = [
+            "gemini-flash-latest",
+            "gemini-2.0-flash-lite",
+            "gemini-2.0-flash",
+            "Custom Model"
+        ]
+        
+        selected_option = st.selectbox(
+            "Choose a model",
+            options=model_options,
+            index=2 if st.session_state.model_name == "gemini-2.0-flash" else 0,
+            help="Select from predefined models or choose 'Custom Model' to enter your own"
+        )
+        
+        # Custom model input
+        if selected_option == "Custom Model":
+            custom_model = st.text_input(
+                "Enter Custom Model Name",
+                value=st.session_state.model_name if st.session_state.model_name not in ["gemini-flash-latest", "gemini-2.0-flash-lite", "gemini-2.0-flash"] else "",
+                placeholder="e.g., gemini-1.5-pro",
+                help="Enter the exact model name from Google AI"
+            )
+            if custom_model:
+                st.session_state.model_name = custom_model
+        else:
+            st.session_state.model_name = selected_option
+        
+        # Display current configuration
+        st.markdown("---")
+        st.markdown("**Current Configuration:**")
+        
+        if st.session_state.api_key:
+            st.success("✅ API Key: Configured")
+        else:
+            st.error("❌ API Key: Not configured")
+        
+        st.info(f"📦 Model: `{st.session_state.model_name}`")
+        
+        # Test connection button
+        if st.button("🔄 Test Connection", use_container_width=True):
+            if not st.session_state.api_key:
+                st.error("❌ Please enter your API key first")
+            else:
+                with st.spinner("Testing connection..."):
+                    try:
+                        test_model = get_configured_model()
+                        if test_model:
+                            # Try a simple generation to test
+                            response = test_model.generate_content("Say 'Connection successful!'")
+                            if response:
+                                st.success("✅ Connection successful!")
+                            else:
+                                st.error("❌ Connection failed - no response")
+                    except Exception as e:
+                        st.error(f"❌ Connection failed: {str(e)}")
+
 def render_sidebar():
     """Render the sidebar for field management"""
     
+    st.sidebar.title("📋 CV2CSV Configuration")
+    
+    # API Configuration section (at top)
+    render_api_configuration()
+    
+    st.sidebar.markdown("---")
+    
+    # Field Configuration section
     st.sidebar.title("📋 Field Configuration")
     st.sidebar.markdown("Configure fields to extract from resumes")
     
@@ -189,8 +292,8 @@ def render_sidebar():
                     st.rerun()
                 else:
                     st.sidebar.error("❌ Field name already exists!")
-        else:
-            st.sidebar.error("❌ All fields are required!")
+            else:
+                st.sidebar.error("❌ All fields are required!")
     
     # Display current fields
     st.sidebar.header("📝 Current Fields")
@@ -285,6 +388,9 @@ def main():
     st.title("📄 CV2CSV - AI Resume Data Extractor")
     st.caption("Upload resumes and extract structured data using AI")
     
+    # Check API configuration
+    if not st.session_state.api_key:
+        st.warning("⚠️ Please configure your Google API key in the sidebar to get started.")
     
     # Show current configuration
     if st.session_state.custom_fields:
@@ -301,6 +407,7 @@ def main():
         st.warning("⚠️ Please configure fields in the sidebar before uploading resumes.")
     
     st.markdown("---")
+    
     # Main interface
     col1, col2 = st.columns([2, 1])
     
@@ -311,7 +418,7 @@ def main():
             type=['pdf', 'docx', 'doc'],
             accept_multiple_files=True,
             help="Supported formats: PDF, DOCX, DOC",
-            disabled=len(st.session_state.custom_fields) == 0
+            disabled=len(st.session_state.custom_fields) == 0 or not st.session_state.api_key
         )
         
         if uploaded_files:
@@ -331,25 +438,41 @@ def main():
         else:
             st.metric("Fields to Extract", 0)
         
+        # Show API status
+        if st.session_state.api_key:
+            st.success("🔑 API: Connected")
+        else:
+            st.error("🔑 API: Not configured")
+        
         # Process button
-        process_disabled = not uploaded_files or len(st.session_state.custom_fields) == 0
+        process_disabled = not uploaded_files or len(st.session_state.custom_fields) == 0 or not st.session_state.api_key
         
         if st.button("🚀 Process All Resumes", type="primary", disabled=process_disabled):
             st.session_state.processed_data = []
             st.session_state.processing_complete = False
             
-            with st.spinner("Processing resumes..."):
-                results = process_uploaded_files(model, uploaded_files, st.session_state.custom_fields)
-                st.session_state.processed_data = results
-                st.session_state.processing_complete = True
+            model = get_configured_model()
             
-            if results:
-                st.success(f"✅ Successfully processed {len(results)} resumes!")
+            if not model:
+                st.error("❌ Failed to initialize model. Please check your API configuration.")
             else:
-                st.error("❌ No resumes were processed successfully.")
+                with st.spinner("Processing resumes..."):
+                    results = process_uploaded_files(model, uploaded_files, st.session_state.custom_fields)
+                    st.session_state.processed_data = results
+                    st.session_state.processing_complete = True
+                
+                if results:
+                    st.success(f"✅ Successfully processed {len(results)} resumes!")
+                else:
+                    st.error("❌ No resumes were processed successfully.")
 
-        if process_disabled and uploaded_files:
-            st.info("Configure fields in sidebar first")
+        if process_disabled:
+            if not st.session_state.api_key:
+                st.info("Configure API key in sidebar")
+            elif not st.session_state.custom_fields:
+                st.info("Configure fields in sidebar")
+            elif not uploaded_files:
+                st.info("Upload resume files")
     
     # Display results
     if st.session_state.processing_complete and st.session_state.processed_data:

@@ -6,3 +6,4 @@ docx2txt
 pathlib
 streamlit
 python-dotenv
+openpyxl
